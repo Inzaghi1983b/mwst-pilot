@@ -1,4 +1,4 @@
-# Modellvergleich OpenAI, DeepSeek, Claude (Vorbereitung)
+# Modellvergleich OpenAI, DeepSeek, Claude
 
 Agent und Modell sind zwei getrennte Achsen. Beide werden nur im Frontmatter von
 `.github/workflows/issue-agent.md` gewaehlt. Es gibt keine eigene Routing-Infrastruktur, kein
@@ -40,7 +40,7 @@ wurden mit gh-aw v0.92.0 kompiliert (Syntax gueltig, noch kein Laufzeit-Beleg).
 
 | Zelle | Agent | Modell | Secret | Status |
 |---|---|---|---|---|
-| T2 | Codex | DeepSeek `deepseek-flash` | `DEEPSEEK_API_KEY` | aktiv im Repo, erster Lauf |
+| T2 | Codex | DeepSeek `deepseek-flash` | `DEEPSEEK_API_KEY` | aktiv im Repo, ein Lauf belegt (2026-10-16) |
 | T4 | Claude Code | DeepSeek `deepseek-flash` | `DEEPSEEK_API_KEY` | Ersatz, falls Codex scheitert |
 | T1 | Codex | OpenAI `gpt-5.3-codex` | `OPENAI_API_KEY` (Projekt-Key mit Limit) | spaeter, optional |
 | T3 | Claude Code | Anthropic `claude-sonnet-5-5` | `ANTHROPIC_API_KEY` (Workspace-Key mit Limit) | spaeter, optional |
@@ -161,7 +161,8 @@ Codex Pflicht, sonst bricht der Compiler ab).
 | Ausloesung nur durch Schreibberechtigte | gh-aw-Rollenpruefung | Fremde koennen keinen Lauf starten |
 
 Erwartung pro Lauf (Referenzaufgabe, Listenpreis): rund 0.18 USD zur Spitzenzeit, rund 0.09 USD
-sonst.
+sonst. Gemessen (T2, siehe Ergebnisse): 0.027 USD zum Spitzenpreis, die Schaetzung lag rund
+siebenmal zu hoch.
 
 ## Zusaetzliche Proben
 
@@ -180,10 +181,57 @@ sonst.
 
 | Zelle | Ergebnis (CI gruen, Nacharbeit?) | Kosten (Tokens, USD aus `gh aw audit`) | Dauer | Gates und Proben |
 |---|---|---|---|---|
-| T2 | | | | |
+| T2 | CI gruen, fachlich korrekt; ein wertloser Test im Review ersetzt | 2.67 AIC = 0.027 USD zum Spitzenpreis, tatsaechlich rund 0.013 USD | 4 min 21 s | Pruefjob gruen, Firewall 11 von 11 Anfragen erlaubt; Proben 1-4 nicht gefahren |
 | T4 | | | | |
 | T1 | | | | |
 | T3 | | | | |
+
+### T2: Pilotlauf vom 2026-10-16 (belegt)
+
+Issue #1 (Austausch-Aufgabe oben), Lauf
+[38896033099](https://github.com/Inzaghi1983b/mwst-pilot/actions/runs/38896033099),
+Ergebnis PR #2 (gemergt).
+
+Ablauf und Laufzeit:
+- Label `agent` gesetzt um 11:46:43 UTC, Draft-PR erstellt um 11:50:48 UTC, Lauf fertig nach
+  4 min 21 s. Jobs: Vorpruefung und Aktivierung 30 s, Agent 1.8 min, Pruefjob 1.2 min,
+  PR-Erstellung 21 s, Abschluss 13 s.
+- Der Agent brauchte einen Anlauf mit einer Selbstkorrektur: erster Testlauf rot (`quantize` auf
+  `0.05` rundet nur auf zwei Stellen), selbst behoben, danach `ruff` und `pytest` gruen.
+
+Kosten (`gh aw audit`, Preise aus dem Frontmatter):
+- Agent: 10 Anfragen, 263 500 Eingabe-Tokens (davon 237 696 aus dem Cache), 7 575
+  Ausgabe-Tokens, 1.83 AIC.
+- Pruefjob: 4 Anfragen, 0.84 AIC.
+- Zusammen 2.67 AIC = 0.027 USD zum Spitzenpreis. Der Lauf lag ausserhalb der DeepSeek-
+  Spitzenzeit, tatsaechlich also rund 0.013 USD. Im DeepSeek-Konto nicht gegengeprueft.
+- `gh aw audit` meldet hohen Token-Verbrauch fuer die kleine Aufgabe (271 000 Tokens, meist
+  wiederholter Kontext aus dem Cache).
+
+Qualitaet:
+- Unabhaengiger Abgleich gegen eine Ganzzahl-Referenz: 600 003 Faelle (0.00 bis 2000.00 CHF, alle
+  drei Saetze), 0 Abweichungen.
+- Im Review gefunden: ein Test "rundet ab unterhalb der Mitte" pruefte keinen Rundungsfall und
+  blieb auch mit falscher Rundung gruen. Ersetzt durch 24.99 CHF zum Normalsatz (2.02419 -> 2.00).
+
+Autonomie:
+- Ohne Mensch: Umsetzung, Tests, Selbstkorrektur, Pruefjob, Draft-PR mit Beschreibung und
+  Annahmen.
+- Mit Mensch: Issue schreiben und Label setzen; CI-Lauf des PRs freigeben (Klick); Review;
+  "Ready for review" und Merge.
+- Nicht vorhanden: automatischer zweiter Lauf, falls CI nach dem Agentenlauf rot ist (hier nicht
+  noetig).
+
+Grenzen dieses Belegs:
+- Ein Lauf belegt Machbarkeit und Austauschbarkeit, keine Qualitaetsaussage.
+- Der CI-Freigabeklick bleibt. GitHub verlangt ihn fuer PRs von `github-actions[bot]`, ohne
+  Einstellung zum Abschalten. Ein per `workflow_dispatch` gestarteter CI-Lauf erfuellt den
+  Pflicht-Check nicht (getestet mit einem Wegwerf-PR). Ein Hilfsworkflow dafuer wurde wieder
+  entfernt.
+- Proben 1-4 (oben) wurden nicht gefahren. Probe 5 nur halb: AIC per `gh aw audit` belegt,
+  Abgleich mit dem DeepSeek-Konto offen.
+- T1, T3 und T4 sind nicht gelaufen. Sie brauchen bezahlte Laeufe, T1 und T3 zusaetzlich neue
+  Secrets.
 
 ## Grenzen
 
