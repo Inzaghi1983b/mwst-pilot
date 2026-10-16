@@ -13,7 +13,8 @@ fuer eine autonome Entwicklungs-Pipeline auf GitHub-Bordmitteln.
    (hoechstens drei Korrekturrunden, Regeln in `AGENTS.md`).
 4. Ein Pruefjob (Threat Detection) kontrolliert das Ergebnis. Erst danach erstellt ein eigener
    Job mit Schreibrechten einen Draft-Pull-Request.
-5. CI (`.github/workflows/ci.yml`) prueft den Pull Request unabhaengig.
+5. CI (`.github/workflows/ci.yml`) prueft den Pull Request unabhaengig. Bei Agenten-PRs stoesst
+   `.github/workflows/ci-anstossen.yml` CI an, sobald der Agentenlauf erfolgreich endet.
 6. Ein Mensch prueft und merged. Es gibt keinen automatischen Merge.
 
 ## Grenzen im Pilot
@@ -21,8 +22,11 @@ fuer eine autonome Entwicklungs-Pipeline auf GitHub-Bordmitteln.
 - Nachbesserung passiert im Agenten-Lauf (gleiche Pruefungen wie CI). Faellt CI danach trotzdem
   rot aus, gibt es noch keinen automatischen zweiten Lauf; gh-aw bietet dafuer nur Bausteine
   (`workflow_run`, Slash-Command mit `push-to-pull-request-branch`).
-- Pull Requests aus dem Workflow starten CI nur mit dem Secret `GH_AW_CI_TRIGGER_TOKEN`
-  (fine-grained PAT, nur dieses Repo, Contents Read & Write) oder nach einem Freigabeklick.
+- Pull Requests aus dem Workflow entstehen mit dem `GITHUB_TOKEN`; ihr eigener CI-Lauf wartet auf
+  einen Freigabeklick. `ci-anstossen.yml` startet CI stattdessen per `workflow_dispatch`, ohne
+  Secret und nur fuer die PR des gerade abgeschlossenen Laufs. Er checkt keinen PR-Code aus.
+  Damit laeuft Agenten-Code in CI, bevor ein Mensch ihn sieht. Darum gilt: CI und jeder andere
+  Workflow, der auf Agenten-Branches laeuft, bekommt nie Secrets oder Schreibrechte.
 - Kostenbremsen: Agent hoechstens 50 AI-Credits (rund 0.50 USD) pro Lauf, Pruefjob 20, alle Laeufe
   zusammen 200 pro 24 Stunden, Laufzeit hoechstens 30 Minuten. Harte Grenze ist das
   Prepaid-Guthaben des DeepSeek-Kontos (Details in `docs/modellvergleich.md`).
@@ -43,6 +47,7 @@ python -m venv .venv
 - `AGENTS.md` - Regeln fuer jeden Coding-Agenten, unabhaengig von Agent und Modell
 - `.github/workflows/issue-agent.md` - Agentic Workflow (Quelle); `.lock.yml` ist kompiliert
 - `.github/workflows/ci.yml` - CI
+- `.github/workflows/ci-anstossen.yml` - startet CI fuer Agenten-PRs ohne Freigabeklick
 - `docs/modellvergleich.md` - Vorbereitung Modellvergleich OpenAI, DeepSeek, Claude
 
 Datenklasse: oeffentlich-tauglich. Keine Personen- oder Kundendaten, keine produktiven Secrets.
