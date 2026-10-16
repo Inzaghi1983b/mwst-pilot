@@ -23,10 +23,13 @@ fuer eine autonome Entwicklungs-Pipeline auf GitHub-Bordmitteln.
   rot aus, gibt es noch keinen automatischen zweiten Lauf; gh-aw bietet dafuer nur Bausteine
   (`workflow_run`, Slash-Command mit `push-to-pull-request-branch`).
 - Pull Requests aus dem Workflow entstehen mit dem `GITHUB_TOKEN`; ihr eigener CI-Lauf wartet auf
-  einen Freigabeklick. `ci-anstossen.yml` startet CI stattdessen per `workflow_dispatch`, ohne
-  Secret und nur fuer die PR des gerade abgeschlossenen Laufs. Er checkt keinen PR-Code aus.
-  Damit laeuft Agenten-Code in CI, bevor ein Mensch ihn sieht. Darum gilt: CI und jeder andere
-  Workflow, der auf Agenten-Branches laeuft, bekommt nie Secrets oder Schreibrechte.
+  einen Freigabeklick, und nur dieser Lauf erfuellt den Pflicht-Check. `ci-anstossen.yml` gibt ihn
+  ohne Secret frei, nur fuer die PR des gerade abgeschlossenen Laufs und nur, wenn sie allein
+  `src/` und `tests/` aendert. Lehnt GitHub die Freigabe ab, startet er CI per `workflow_dispatch`
+  (Ergebnis sichtbar, zaehlt aber nicht als Pflicht-Check); dann braucht es den Klick. Er checkt
+  keinen PR-Code aus. Damit laeuft Agenten-Code in CI, bevor ein Mensch ihn sieht. Darum gilt: CI
+  und jeder andere Workflow, der auf Agenten-Branches laeuft, bekommt nie Secrets oder
+  Schreibrechte.
 - Kostenbremsen: Agent hoechstens 50 AI-Credits (rund 0.50 USD) pro Lauf, Pruefjob 20, alle Laeufe
   zusammen 200 pro 24 Stunden, Laufzeit hoechstens 30 Minuten. Harte Grenze ist das
   Prepaid-Guthaben des DeepSeek-Kontos (Details in `docs/modellvergleich.md`).
@@ -47,7 +50,7 @@ python -m venv .venv
 - `AGENTS.md` - Regeln fuer jeden Coding-Agenten, unabhaengig von Agent und Modell
 - `.github/workflows/issue-agent.md` - Agentic Workflow (Quelle); `.lock.yml` ist kompiliert
 - `.github/workflows/ci.yml` - CI
-- `.github/workflows/ci-anstossen.yml` - startet CI fuer Agenten-PRs ohne Freigabeklick
+- `.github/workflows/ci-anstossen.yml` - gibt CI fuer Agenten-PRs frei (Rueckfall: workflow_dispatch)
 - `docs/modellvergleich.md` - Vorbereitung Modellvergleich OpenAI, DeepSeek, Claude
 
 Datenklasse: oeffentlich-tauglich. Keine Personen- oder Kundendaten, keine produktiven Secrets.

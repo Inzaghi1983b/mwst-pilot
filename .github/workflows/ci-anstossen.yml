@@ -1,13 +1,16 @@
 name: CI fuer Agenten-PRs anstossen
 
-# Startet CI fuer die PR, die ein abgeschlossener Lauf von "Issue umsetzen" erstellt hat, ohne
-# manuellen Freigabeklick. PRs, die der GITHUB_TOKEN erstellt, starten CI nur nach Freigabe.
-# workflow_dispatch ist die dokumentierte Ausnahme und startet immer einen Lauf. Dieser Workflow
-# laeuft mit Code von main, checkt keinen PR-Code aus und nutzt keine Secrets.
+# Bringt CI fuer die PR, die ein abgeschlossener Lauf von "Issue umsetzen" erstellt hat, ohne
+# manuellen Klick in Gang. PRs, die der GITHUB_TOKEN erstellt, starten CI nur nach Freigabe, und
+# nur dieser pull_request-Lauf erfuellt den Pflicht-Check. Der Workflow versucht deshalb zuerst,
+# den wartenden CI-Lauf der PR freizugeben. Gelingt das nicht, startet er CI per workflow_dispatch
+# (dokumentierte Ausnahme) fuer ein fruehes Ergebnis; zum Mergen braucht es dann den Klick.
+# Er laeuft mit Code von main, checkt keinen PR-Code aus und nutzt keine Secrets.
 #
 # Eine PR gehoert zum Lauf, wenn sie offen ist, vom github-actions-Bot stammt, im selben Repo
 # liegt, das Label agent-pr traegt, waehrend des Laufs erstellt wurde und ihr Text die Lauf-URL
 # enthaelt (gh-aw schreibt sie in die Fusszeile). Andere offene PRs bleiben unberuehrt.
+# Aendert die PR etwas ausserhalb von src/ und tests/, laeuft nichts automatisch.
 
 on:
   # workflow_run ist hier unkritisch: Quelle ist nur "Issue umsetzen" (startet nur durch
@@ -34,8 +37,8 @@ jobs:
     name: CI anstossen
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     permissions:
-      actions: write # Lauf lesen, CI per workflow_dispatch starten
-      pull-requests: read # offene PRs lesen
+      actions: write # Laeufe lesen, CI-Lauf freigeben oder per workflow_dispatch starten
+      pull-requests: read # offene PRs und ihre Dateien lesen
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -61,18 +64,43 @@ jobs:
             | select(any(.labels[]; .name == "agent-pr"))
             | select(.created_at >= env.START and .created_at <= env.ENDE)
             | select((.body // "") | test("/actions/runs/" + env.LAUF_ID + "([^0-9]|$)"))
-            | [.number, .head.ref] | @tsv')
+            | [.number, .head.ref, .head.sha] | @tsv')
           if [ -z "$prs" ]; then
             echo "Lauf $LAUF_ID hat keine offene Agenten-PR, nichts zu tun"
             exit 0
           fi
           fehler=0
-          while IFS=$'\t' read -r nummer branch; do
-            if gh workflow run ci.yml --repo "$REPO" --ref "$branch" < /dev/null; then
-              echo "PR #$nummer: CI auf $branch gestartet"
+          while IFS=$'\t' read -r nummer branch sha <&3; do
+            dateien=$(gh api --paginate "repos/$REPO/pulls/$nummer/files?per_page=100" --jq '.[].filename')
+            if grep -qvE '^(src|tests)/' <<< "$dateien"; then
+              echo "::error::PR #$nummer aendert Dateien ausserhalb von src/ und tests/, nichts automatisch gestartet"
+              fehler=1
+              continue
+            fi
+            wartend=""
+            for _ in 1 2 3 4 5 6; do
+              wartend=$(SHA="$sha" gh api "repos/$REPO/actions/runs?event=pull_request&head_sha=$sha" --jq '.workflow_runs[]
+                | select(.path == ".github/workflows/ci.yml" and .head_sha == env.SHA)
+                | select(.status == "action_required" or .status == "waiting" or .conclusion == "action_required")
+                | .id')
+              [ -n "$wartend" ] && break
+              sleep 10
+            done
+            freigegeben=0
+            for id in $wartend; do
+              if gh api -X POST "repos/$REPO/actions/runs/$id/approve" --silent; then
+                echo "PR #$nummer: wartenden CI-Lauf $id freigegeben"
+                freigegeben=1
+              else
+                echo "::warning::PR #$nummer: CI-Lauf $id liess sich nicht freigeben, bitte manuell freigeben"
+              fi
+            done
+            [ "$freigegeben" = 1 ] && continue
+            if gh workflow run ci.yml --repo "$REPO" --ref "$branch"; then
+              echo "PR #$nummer: CI auf $branch per workflow_dispatch gestartet (zaehlt nicht als Pflicht-Check)"
             else
               echo "::error::PR #$nummer: CI-Start auf $branch fehlgeschlagen"
               fehler=1
             fi
-          done <<< "$prs"
+          done 3<<< "$prs"
           exit "$fehler"
