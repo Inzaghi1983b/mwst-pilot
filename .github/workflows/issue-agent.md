@@ -10,13 +10,32 @@ permissions:
   pull-requests: read
 engine:
   id: codex
-  model: gpt-5.3-codex
+  model: deepseek-flash
+  env:
+    OPENAI_BASE_URL: https://api.deepseek.com
+    OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+    CODEX_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+  config: |
+    web_search = "disabled"
+    model_reasoning_summary = "none"
+    model_context_window = 200000
 timeout-minutes: 30
-max-ai-credits: 300
+max-ai-credits: 50
+max-daily-ai-credits: 200
+models:
+  providers:
+    openai:
+      models:
+        deepseek-flash:
+          cost:
+            input: "3e-07"
+            output: "1.2e-06"
+            cache_read: "6e-09"
 network:
   allowed:
     - defaults
     - python
+    - api.deepseek.com
 steps:
   - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
     with:
@@ -36,6 +55,7 @@ safe-outputs:
     max: 1
   threat-detection:
     continue-on-error: false
+    max-ai-credits: 20
 ---
 
 # Issue umsetzen

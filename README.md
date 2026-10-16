@@ -6,8 +6,9 @@ fuer eine autonome Entwicklungs-Pipeline auf GitHub-Bordmitteln.
 ## Ablauf
 
 1. Ein Mensch schreibt ein Issue und setzt das Label `agent`.
-2. GitHub Agentic Workflows startet den Coding-Agenten (zuerst Codex) in einer abgeschotteten
-   Umgebung: Agent-Job nur mit Leserechten, Netzwerk nur ueber Allowlist, API-Key nur im Proxy.
+2. GitHub Agentic Workflows startet den Coding-Agenten (Codex mit DeepSeek Flash) in einer
+   abgeschotteten Umgebung: Agent-Job nur mit Leserechten, Netzwerk nur ueber Allowlist, API-Key
+   nur im Proxy.
 3. Der Agent setzt das Issue um und fuehrt `ruff` und `pytest` aus, bis beide gruen sind
    (hoechstens drei Korrekturrunden, Regeln in `AGENTS.md`).
 4. Ein Pruefjob (Threat Detection) kontrolliert das Ergebnis. Erst danach erstellt ein eigener
@@ -22,7 +23,9 @@ fuer eine autonome Entwicklungs-Pipeline auf GitHub-Bordmitteln.
   (`workflow_run`, Slash-Command mit `push-to-pull-request-branch`).
 - Pull Requests aus dem Workflow starten CI nur mit dem Secret `GH_AW_CI_TRIGGER_TOKEN`
   (fine-grained PAT, nur dieses Repo, Contents Read & Write) oder nach einem Freigabeklick.
-- Pro Lauf hoechstens 300 AI-Credits (rund 3 USD), Laufzeit hoechstens 30 Minuten.
+- Kostenbremsen: Agent hoechstens 50 AI-Credits (rund 0.50 USD) pro Lauf, Pruefjob 20, alle Laeufe
+  zusammen 200 pro 24 Stunden, Laufzeit hoechstens 30 Minuten. Harte Grenze ist das
+  Prepaid-Guthaben des DeepSeek-Kontos (Details in `docs/modellvergleich.md`).
 
 ## Entwicklung lokal
 
