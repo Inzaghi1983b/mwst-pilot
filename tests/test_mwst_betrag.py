@@ -31,8 +31,8 @@ def test_mwst_betrag_rundet_mitte_aufwaerts_auf_075():
 
 
 def test_mwst_betrag_rundet_ab_unterhalb_der_mitte():
-    # 25.00 * 2.6 % = 0.65, bereits ein Vielfaches von 0.05.
-    assert mwst_betrag(Decimal("25.00"), "reduziert") == Decimal("0.65")
+    # 24.99 * 8.1 % = 2.02419, knapp unter der Mitte 2.025: abrunden auf 2.00.
+    assert mwst_betrag(Decimal("24.99"), "normal") == Decimal("2.00")
 
 
 def test_mwst_betrag_bei_netto_null_ist_null():
