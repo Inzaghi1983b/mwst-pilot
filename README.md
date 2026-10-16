@@ -1,0 +1,45 @@
+# mwst-pilot
+
+Kleine Python-Bibliothek fuer Schweizer MWST- und Rappenbetraege. Das Repo ist zugleich der Pilot
+fuer eine autonome Entwicklungs-Pipeline auf GitHub-Bordmitteln.
+
+## Ablauf
+
+1. Ein Mensch schreibt ein Issue und setzt das Label `agent`.
+2. GitHub Agentic Workflows startet den Coding-Agenten (zuerst Codex) in einer abgeschotteten
+   Umgebung: Agent-Job nur mit Leserechten, Netzwerk nur ueber Allowlist, API-Key nur im Proxy.
+3. Der Agent setzt das Issue um und fuehrt `ruff` und `pytest` aus, bis beide gruen sind
+   (hoechstens drei Korrekturrunden, Regeln in `AGENTS.md`).
+4. Ein Pruefjob (Threat Detection) kontrolliert das Ergebnis. Erst danach erstellt ein eigener
+   Job mit Schreibrechten einen Draft-Pull-Request.
+5. CI (`.github/workflows/ci.yml`) prueft den Pull Request unabhaengig.
+6. Ein Mensch prueft und merged. Es gibt keinen automatischen Merge.
+
+## Grenzen im Pilot
+
+- Nachbesserung passiert im Agenten-Lauf (gleiche Pruefungen wie CI). Faellt CI danach trotzdem
+  rot aus, gibt es noch keinen automatischen zweiten Lauf; gh-aw bietet dafuer nur Bausteine
+  (`workflow_run`, Slash-Command mit `push-to-pull-request-branch`).
+- Pull Requests aus dem Workflow starten CI nur mit dem Secret `GH_AW_CI_TRIGGER_TOKEN`
+  (fine-grained PAT, nur dieses Repo, Contents Read & Write) oder nach einem Freigabeklick.
+- Pro Lauf hoechstens 300 AI-Credits (rund 3 USD), Laufzeit hoechstens 30 Minuten.
+
+## Entwicklung lokal
+
+```
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\ruff check .
+.venv\Scripts\pytest
+```
+
+## Dateien
+
+- `src/mwst/` - Bibliothek
+- `tests/` - Tests
+- `AGENTS.md` - Regeln fuer jeden Coding-Agenten, unabhaengig von Agent und Modell
+- `.github/workflows/issue-agent.md` - Agentic Workflow (Quelle); `.lock.yml` ist kompiliert
+- `.github/workflows/ci.yml` - CI
+- `docs/modellvergleich.md` - Vorbereitung Modellvergleich OpenAI, DeepSeek, Claude
+
+Datenklasse: oeffentlich-tauglich. Keine Personen- oder Kundendaten, keine produktiven Secrets.
